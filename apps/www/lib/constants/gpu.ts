@@ -124,14 +124,48 @@ export const GPU_VRAM: Record<string, number> = {
   'radeon rx 6700 xt': 12,
   'radeon rx 6600 xt': 8,
   'radeon rx 6600': 8,
+  // Intel Arc B-series (desktop)
+  'arc b580': 12,
+  'arc b570': 10,
+  // Intel Arc A-series (desktop)
+  'arc a770 graphics 16gb': 16,
+  'arc a770 graphics 8gb': 8,
+  'arc a770 16gb': 16,
+  'arc a770 8gb': 8,
+  'arc a770': 16,
+  'arc a750': 8,
+  'arc a580': 8,
+  'arc a380': 6,
+  'arc a310': 4,
+  // Intel Arc A-series (mobile)
+  'arc a770m': 16,
+  'arc a730m': 12,
+  'arc a570m': 8,
+  'arc a550m': 8,
+  'arc a530m 8gb': 8,
+  'arc a530m 4gb': 4,
+  'arc a530m': 8,
+  'arc a370m': 4,
+  'arc a350m': 4,
 };
 
 // Pre-sort keys by length (longest first) so "4080 super" matches before "4080".
-const GPU_VRAM_ENTRIES = Object.entries(GPU_VRAM).sort((a, b) => b[0].length - a[0].length);
+const GPU_VRAM_ENTRIES = Object.entries(GPU_VRAM)
+  .map(([key, vram]) => [normalizeGpuName(key), vram] as const)
+  .sort((a, b) => b[0].length - a[0].length);
+
+function normalizeGpuName(gpu: string): string {
+  return gpu
+    .toLowerCase()
+    .replace(/[®™]/gu, '')
+    .replace(/\((?:r|tm)\)/giu, '')
+    .replace(/[^a-z0-9]+/gu, ' ')
+    .trim();
+}
 
 /** Look up VRAM by matching the GPU name (case-insensitive, longest match first). */
 export function getVramGb(gpu: string): number | null {
-  const lower = gpu.toLowerCase();
+  const lower = normalizeGpuName(gpu);
   for (const [key, vram] of GPU_VRAM_ENTRIES) {
     if (lower.includes(key)) return vram;
   }
@@ -165,12 +199,19 @@ const GPU_SERIES: [RegExp, number][] = [
   // AMD Radeon
   [/radeon rx 7\d/i, 6],
   [/radeon rx 6\d/i, 5],
+  // Intel Arc
+  [/arc b\d{3}/i, 6],
+  [/arc a\d{3}m/i, 4],
+  [/arc a\d{3}/i, 4],
+  [/intel arc graphics/i, 3],
+  [/arc graphics/i, 3],
 ];
 
 /** Get a series rank for a GPU (higher = more powerful series). */
 export function getGpuSeriesRank(gpu: string): number {
+  const normalized = normalizeGpuName(gpu);
   for (const [pattern, rank] of GPU_SERIES) {
-    if (pattern.test(gpu)) return rank;
+    if (pattern.test(normalized)) return rank;
   }
   return 0;
 }
